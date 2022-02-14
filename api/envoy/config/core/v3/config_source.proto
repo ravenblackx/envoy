@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package envoy.config.core.v3;
 
+import "envoy/config/core/v3/base.proto";
 import "envoy/config/core/v3/grpc_service.proto";
 
 import "google/protobuf/duration.proto";
@@ -143,13 +144,22 @@ message RateLimitSettings {
   google.protobuf.DoubleValue fill_rate = 2 [(validate.rules).double = {gt: 0.0}];
 }
 
+// fixfix
+message PathConfigSource {
+  // fixfix
+  string path = 1 [(validate.rules).string = {min_len: 1}];
+
+  // fixfix
+  WatchedDirectory watched_directory = 2;
+}
+
 // Configuration for :ref:`listeners <config_listeners>`, :ref:`clusters
 // <config_cluster_manager>`, :ref:`routes
 // <envoy_v3_api_msg_config.route.v3.RouteConfiguration>`, :ref:`endpoints
 // <arch_overview_service_discovery>` etc. may either be sourced from the
 // filesystem or from an xDS API source. Filesystem configs are watched with
 // inotify for updates.
-// [#next-free-field: 8]
+// [#next-free-field: 9]
 message ConfigSource {
   option (udpa.annotations.versioning).previous_message_type = "envoy.api.v2.core.ConfigSource";
 
@@ -175,7 +185,10 @@ message ConfigSource {
     //   Envoy will only watch the file path for *moves.* This is because in general only moves
     //   are atomic. The same method of swapping files as is demonstrated in the
     //   :ref:`runtime documentation <config_runtime_symbolic_link_swap>` can be used here also.
-    string path = 1;
+    string path = 1 [deprecated = true, (envoy.annotations.deprecated_at_minor_version) = "3.0"];
+
+    // fixfix
+    PathConfigSource path_config_source = 8;
 
     // API configuration source.
     ApiConfigSource api_config_source = 2;

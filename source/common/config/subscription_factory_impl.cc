@@ -34,9 +34,15 @@ SubscriptionPtr SubscriptionFactoryImpl::subscriptionFromConfigSource(
 
   switch (config.config_source_specifier_case()) {
   case envoy::config::core::v3::ConfigSource::ConfigSourceSpecifierCase::kPath: {
-    Utility::checkFilesystemSubscriptionBackingPath(config.path(), api_);
+    Utility::checkFilesystemSubscriptionBackingPath(config.path(), api_); // fixfix move
     return std::make_unique<Config::FilesystemSubscriptionImpl>(
-        dispatcher_, config.path(), callbacks, resource_decoder, stats, validation_visitor_, api_);
+        dispatcher_, makePathConfigSource(config.path()), callbacks, resource_decoder, stats,
+        validation_visitor_, api_);
+  }
+  case envoy::config::core::v3::ConfigSource::ConfigSourceSpecifierCase::kPathConfigSource: {
+    return std::make_unique<Config::FilesystemSubscriptionImpl>(
+        dispatcher_, config.path_config_source(), callbacks, resource_decoder, stats,
+        validation_visitor_, api_);
   }
   case envoy::config::core::v3::ConfigSource::ConfigSourceSpecifierCase::kApiConfigSource: {
     const envoy::config::core::v3::ApiConfigSource& api_config_source = config.api_config_source();
@@ -132,9 +138,10 @@ SubscriptionPtr SubscriptionFactoryImpl::collectionSubscriptionFromUrl(
   switch (collection_locator.scheme()) {
   case xds::core::v3::ResourceLocator::FILE: {
     const std::string path = Http::Utility::localPathFromFilePath(collection_locator.id());
-    Utility::checkFilesystemSubscriptionBackingPath(path, api_);
+    Utility::checkFilesystemSubscriptionBackingPath(path, api_); // fixfix move
     return std::make_unique<Config::FilesystemCollectionSubscriptionImpl>(
-        dispatcher_, path, callbacks, resource_decoder, stats, validation_visitor_, api_);
+        dispatcher_, makePathConfigSource(path), callbacks, resource_decoder, stats,
+        validation_visitor_, api_);
   }
   case xds::core::v3::ResourceLocator::XDSTP: {
     if (resource_type != collection_locator.resource_type()) {

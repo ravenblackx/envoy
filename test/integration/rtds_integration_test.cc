@@ -12,7 +12,7 @@ namespace {
 
 // TODO(fredlas) set_node_on_first_message_only was true; the delta+SotW unification
 //               work restores it here.
-std::string tdsBootstrapConfig(absl::string_view api_type) {
+std::string rtdsBootstrapConfig(absl::string_view api_type) {
   return fmt::format(R"EOF(
 static_resources:
   clusters:
@@ -64,6 +64,7 @@ layered_runtime:
             envoy_grpc:
               cluster_name: rtds_cluster
           set_node_on_first_message_only: true
+
   - name: some_admin_layer
     admin_layer: {{}}
 admin:
@@ -85,10 +86,10 @@ public:
   RtdsIntegrationTest()
       : HttpIntegrationTest(
             Http::CodecType::HTTP2, ipVersion(),
-            tdsBootstrapConfig(sotwOrDelta() == Grpc::SotwOrDelta::Sotw ||
-                                       sotwOrDelta() == Grpc::SotwOrDelta::UnifiedSotw
-                                   ? "GRPC"
-                                   : "DELTA_GRPC")) {
+            rtdsBootstrapConfig(sotwOrDelta() == Grpc::SotwOrDelta::Sotw ||
+                                        sotwOrDelta() == Grpc::SotwOrDelta::UnifiedSotw
+                                    ? "GRPC"
+                                    : "DELTA_GRPC")) {
     if (sotwOrDelta() == Grpc::SotwOrDelta::UnifiedSotw ||
         sotwOrDelta() == Grpc::SotwOrDelta::UnifiedDelta) {
       config_helper_.addRuntimeOverride("envoy.reloadable_features.unified_mux", "true");
@@ -101,6 +102,16 @@ public:
   void TearDown() override { cleanUpXdsConnection(); }
 
   void initialize() override {
+    config_helper_.addConfigModifier([&](envoy::config::bootstrap::v3::Bootstrap& bootstrap) {
+      auto* layer = bootstrap.mutable_layered_runtime()->add_layers();
+      layer->set_name("file_rtds");
+      auto* rtds_layer = layer->mutable_rtds_layer();
+      rtds_layer->set_name("file_rtds");
+      auto* path_config_source = rtds_layer->mutable_rtds_config()->mutable_path_config_source();
+      path_config_source->set_path(temp_path_ + "/data_symlink/rtds.yaml");
+      path_config_source->mutable_watched_directory()->set_path(temp_path_ + "/data_symlink");
+    });
+
     // The tests infra expects the xDS server to be the second fake upstream, so
     // we need a dummy data plane cluster.
     setUpstreamCount(1);
@@ -133,6 +144,7 @@ public:
     return "";
   }
 
+  const std::string temp_path_{TestEnvironment::temporaryDirectory()}; // fixfix
   uint32_t initial_load_success_{};
   uint32_t initial_keys_{};
 };
