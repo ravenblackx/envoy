@@ -878,7 +878,7 @@ public:
   /**
    * @return bool whether any above high watermark triggers are currently active
    */
-  bool aboveHighWatermark() { return high_watermark_count_ != 0; }
+  bool aboveHighWatermark() { return high_watermark_count_ > intercepted_watermark_count_; }
 
   // Pass on watermark callbacks to watermark subscribers. This boils down to passing watermark
   // events for this stream and the downstream connection to the router filter.
@@ -1020,6 +1020,7 @@ private:
   Buffer::InstancePtr buffered_request_data_;
   uint32_t buffer_limit_{0};
   uint32_t high_watermark_count_{0};
+  uint32_t intercepted_watermark_count_{0};
   std::list<DownstreamWatermarkCallbacks*> watermark_callbacks_;
   Network::Socket::OptionsSharedPtr upstream_options_ =
       std::make_shared<Network::Socket::Options>();

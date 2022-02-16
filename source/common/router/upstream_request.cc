@@ -579,7 +579,7 @@ void UpstreamRequest::clearRequestEncoder() {
   upstream_.reset();
 }
 
-void UpstreamRequest::DownstreamWatermarkManager::onAboveWriteBufferHighWatermark() {
+bool UpstreamRequest::DownstreamWatermarkManager::onAboveWriteBufferHighWatermark() {
   ASSERT(parent_.upstream_);
 
   // There are two states we should get this callback in: 1) the watermark was
@@ -594,15 +594,17 @@ void UpstreamRequest::DownstreamWatermarkManager::onAboveWriteBufferHighWatermar
   // Network::Connection (H1) will handle reference counting.
   parent_.parent_.cluster()->stats().upstream_flow_control_paused_reading_total_.inc();
   parent_.upstream_->readDisable(true);
+  return true;
 }
 
-void UpstreamRequest::DownstreamWatermarkManager::onBelowWriteBufferLowWatermark() {
+bool UpstreamRequest::DownstreamWatermarkManager::onBelowWriteBufferLowWatermark() {
   ASSERT(parent_.upstream_);
 
   // One source of connection blockage has buffer available. Pass this on to the stream, which
   // will resume reads if this was the last remaining high watermark.
   parent_.parent_.cluster()->stats().upstream_flow_control_resumed_reading_total_.inc();
   parent_.upstream_->readDisable(false);
+  return true;
 }
 
 void UpstreamRequest::disableDataFromDownstreamForFlowControl() {

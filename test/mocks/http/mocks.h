@@ -520,8 +520,12 @@ public:
 
 class MockDownstreamWatermarkCallbacks : public DownstreamWatermarkCallbacks {
 public:
-  MOCK_METHOD(void, onAboveWriteBufferHighWatermark, ());
-  MOCK_METHOD(void, onBelowWriteBufferLowWatermark, ());
+  MockDownstreamWatermarkCallbacks() {
+    ON_CALL(*this, onAboveWriteBufferHighWatermark()).WillByDefault(testing::Return(true));
+    ON_CALL(*this, onBelowWriteBufferLowWatermark()).WillByDefault(testing::Return(true));
+  }
+  MOCK_METHOD(bool, onAboveWriteBufferHighWatermark, ());
+  MOCK_METHOD(bool, onBelowWriteBufferLowWatermark, ());
 };
 
 class MockConnectionManagerConfig : public ConnectionManagerConfig {

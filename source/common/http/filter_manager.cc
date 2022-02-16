@@ -1386,7 +1386,10 @@ bool FilterManager::handleDataIfStopAll(ActiveStreamFilterBase& filter, Buffer::
 void FilterManager::callHighWatermarkCallbacks() {
   ++high_watermark_count_;
   for (auto watermark_callbacks : watermark_callbacks_) {
-    watermark_callbacks->onAboveWriteBufferHighWatermark();
+    if (!watermark_callbacks->onAboveWriteBufferHighWatermark()) {
+      ++intercepted_watermark_count_;
+      return;
+    }
   }
 }
 
@@ -1394,7 +1397,10 @@ void FilterManager::callLowWatermarkCallbacks() {
   ASSERT(high_watermark_count_ > 0);
   --high_watermark_count_;
   for (auto watermark_callbacks : watermark_callbacks_) {
-    watermark_callbacks->onBelowWriteBufferLowWatermark();
+    if (!watermark_callbacks->onBelowWriteBufferLowWatermark()) {
+      --intercepted_watermark_count_;
+      return;
+    }
   }
 }
 
@@ -1465,7 +1471,7 @@ void ActiveStreamDecoderFilter::addDownstreamWatermarkCallbacks(
   ASSERT(std::find(parent_.watermark_callbacks_.begin(), parent_.watermark_callbacks_.end(),
                    &watermark_callbacks) == parent_.watermark_callbacks_.end());
   parent_.watermark_callbacks_.emplace(parent_.watermark_callbacks_.end(), &watermark_callbacks);
-  for (uint32_t i = 0; i < parent_.high_watermark_count_; ++i) {
+  for (uint32_t i = parent_.intercepted_watermark_count_; i < parent_.high_watermark_count_; ++i) {
     watermark_callbacks.onAboveWriteBufferHighWatermark();
   }
 }

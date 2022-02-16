@@ -99,8 +99,8 @@ public:
     DownstreamWatermarkManager(UpstreamRequest& parent) : parent_(parent) {}
 
     // Http::DownstreamWatermarkCallbacks
-    void onBelowWriteBufferLowWatermark() override;
-    void onAboveWriteBufferHighWatermark() override;
+    bool onBelowWriteBufferLowWatermark() override;
+    bool onAboveWriteBufferHighWatermark() override;
 
     UpstreamRequest& parent_;
   };

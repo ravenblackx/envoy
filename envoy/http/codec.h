@@ -517,8 +517,10 @@ public:
    * may be called separately for both the stream going over and the connection going over. It
    * is the responsibility of the DownstreamWatermarkCallbacks implementation to handle unwinding
    * multiple high and low watermark calls.
+   *
+   * Returns true to continue triggering watermark callbacks along the filter chain.
    */
-  virtual void onAboveWriteBufferHighWatermark() PURE;
+  virtual bool onAboveWriteBufferHighWatermark() PURE;
 
   /**
    * Called when the downstream connection or stream goes from over its high watermark to under its
@@ -526,8 +528,10 @@ public:
    * when both the stream and the connection go under the low watermark limit, and the callee must
    * ensure that the flow of data does not resume until all callers which were above their high
    * watermarks have gone below.
+   *
+   * Returns true to continue triggering watermark callbacks along the filter chain.
    */
-  virtual void onBelowWriteBufferLowWatermark() PURE;
+  virtual bool onBelowWriteBufferLowWatermark() PURE;
 };
 
 /**
