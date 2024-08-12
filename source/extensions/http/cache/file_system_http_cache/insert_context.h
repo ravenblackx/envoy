@@ -46,6 +46,7 @@ public:
   void insertTrailers(const Http::ResponseTrailerMap& trailers,
                       InsertCallback insert_complete) override;
   void onDestroy() override;
+  const LookupRequest& lookup();
 
 private:
   std::unique_ptr<FileLookupContext> lookup_context_;

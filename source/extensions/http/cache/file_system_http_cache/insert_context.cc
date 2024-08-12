@@ -23,6 +23,8 @@ std::string writeFailureMessage(absl::string_view kind, absl::StatusOr<size_t> r
 }
 } // namespace
 
+const LookupRequest& FileInsertContext::lookup() { return lookup_context_->lookup(); }
+
 FileInsertContext::FileInsertContext(std::shared_ptr<FileSystemHttpCache> cache,
                                      std::unique_ptr<FileLookupContext> lookup_context)
     : lookup_context_(std::move(lookup_context)), key_(lookup_context_->lookup().key()),

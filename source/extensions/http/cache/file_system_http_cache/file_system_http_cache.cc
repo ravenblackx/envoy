@@ -116,7 +116,8 @@ FileSystemHttpCache::makeVaryKey(const Key& base, const VaryAllowList& vary_allo
 
 LookupContextPtr FileSystemHttpCache::makeLookupContext(LookupRequest&& lookup,
                                                         Http::StreamDecoderFilterCallbacks&) {
-  return std::make_unique<FileLookupContext>(*this, std::move(lookup));
+  std::shared_ptr<ActiveCacheEntry> entry = getActiveCacheEntry(lookup.key());
+  return entry->makeLookupContext(*this, std::move(lookup));
 }
 
 // Helper class to reduce the lambda depth of updateHeaders.
@@ -309,9 +310,9 @@ void FileSystemHttpCache::updateHeaders(const LookupContext& lookup_context,
 
 absl::string_view FileSystemHttpCache::cachePath() const { return shared_->cachePath(); }
 
-bool FileSystemHttpCache::workInProgress(const Key& key) {
+std::shared_ptr<ActiveCacheEntry> FileSystemHttpCache::getActiveCacheEntry(const Key& key) {
   absl::MutexLock lock(&cache_mu_);
-  return entries_being_written_.contains(key);
+  return active_cache_entries_.getEntry(key);
 }
 
 std::shared_ptr<Cleanup> FileSystemHttpCache::maybeStartWritingEntry(const Key& key) {

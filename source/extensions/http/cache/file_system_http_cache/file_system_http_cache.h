@@ -7,6 +7,7 @@
 #include "source/common/common/logger.h"
 #include "source/extensions/common/async_files/async_file_manager.h"
 #include "source/extensions/filters/http/cache/http_cache.h"
+#include "source/extensions/http/cache/file_system_http_cache/active_cache_entry.h"
 #include "source/extensions/http/cache/file_system_http_cache/stats.h"
 
 #include "absl/base/thread_annotations.h"
@@ -47,9 +48,11 @@ public:
 
   // Overrides for HttpCache
   LookupContextPtr makeLookupContext(LookupRequest&& lookup,
-                                     Http::StreamDecoderFilterCallbacks& callbacks) override;
+                                     Http::StreamDecoderFilterCallbacks& callbacks) override
+      ABSL_LOCKS_EXCLUDED(cache_mu_);
   InsertContextPtr makeInsertContext(LookupContextPtr&& lookup_context,
-                                     Http::StreamEncoderFilterCallbacks& callbacks) override;
+                                     Http::StreamEncoderFilterCallbacks& callbacks) override
+      ABSL_LOCKS_EXCLUDED(cache_mu_);
   CacheInfo cacheInfo() const override;
   const CacheStats& stats() const;
 
@@ -90,11 +93,10 @@ public:
   const ConfigProto& config() const;
 
   /**
-   * True if the given key currently has a stream writing to it.
-   * @param key the key to check against entries_being_written_.
-   * @return True if the key is present in entries_being_written_.
+   * @return ActiveCacheEntry corresponding to the given key.
    */
-  bool workInProgress(const Key& key) ABSL_LOCKS_EXCLUDED(cache_mu_);
+  std::shared_ptr<ActiveCacheEntry> getActiveCacheEntry(const Key& key)
+      ABSL_LOCKS_EXCLUDED(cache_mu_);
 
   /**
    * Inserts the key into entries_being_written_, excluding it from being written to by
@@ -203,18 +205,14 @@ private:
   const Singleton::InstanceSharedPtr owner_;
 
   absl::Mutex cache_mu_;
+  // A map of cache entries that have been used recently
   // When a new cache entry is being written, its key will be here and the cache file
   // will not be present. The cache miss will be detected normally from the filesystem.
   // This should be checked before writing; cancel the write if another thread is already
   // writing the same entry.
   // TODO(ravenblack): if contention of cache_mu_ causes a performance issue, this could
   // be split into multiple hash tables along key boundaries, each with their own mutex.
-  // TODO(ravenblack): if detecting cache misses by filesystem causes a performance issue
-  // with uncacheable responses, another set could be added to keep track of uncacheable
-  // responses, to skip the filesystem hit. (Using ReaderLock should make such a table
-  // inherently low contention.)
-  absl::flat_hash_set<Key, MessageUtil, MessageUtil>
-      entries_being_written_ ABSL_GUARDED_BY(cache_mu_);
+  ActiveCacheEntries active_cache_entries_ ABSL_GUARDED_BY(cache_mu_);
 
   std::shared_ptr<Common::AsyncFiles::AsyncFileManager> async_file_manager_;
 

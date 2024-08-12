@@ -15,18 +15,28 @@ std::string FileLookupContext::filepath() {
   return absl::StrCat(cache_.cachePath(), cache_.generateFilename(key_));
 }
 
-bool FileLookupContext::workInProgress() const { return cache_.workInProgress(key()); }
-
 void FileLookupContext::getHeaders(LookupHeadersCallback&& cb) {
-  // TODO(ravenblack): Consider adding a memory cache check here for uncacheable keys, to save
-  // on the repeated filesystem hit. Capture some performance metrics to see if it's worth it.
-  // If migrating to "shared stream" implementation, this question answers itself.
-  absl::MutexLock lock(&mu_);
-  getHeadersWithLock(std::move(cb));
+  switch (state_) {
+  case State::NotCacheable:
+    cb(LookupResult{}, false);
+    return;
+  case State::StreamListening:
+    headers_cb_ = std::move(cb);
+    entry_->wantHeaders(this);
+    return;
+  case State::CheckCacheExistence:
+    headers_cb_ = std::move(cb);
+    checkCacheEntryExistence();
+    return;
+  case State::Missed:
+  case State::CheckingFile:
+  case State::ReadingFile:
+    IS_ENVOY_BUG("should not be possible to getHeaders in these states");
+  }
 }
 
-void FileLookupContext::getHeadersWithLock(LookupHeadersCallback cb) {
-  mu_.AssertHeld();
+void FileLookupContext::checkCacheEntryExistence() {
+  absl::MutexLock lock(&mu_);
   cancel_action_in_flight_ = cache_.asyncFileManager()->openExistingFile(
       filepath(), Common::AsyncFiles::AsyncFileManager::Mode::ReadOnly,
       [this, cb](absl::StatusOr<AsyncFileHandle> open_result) {
@@ -88,9 +98,8 @@ void FileLookupContext::getHeadersWithLock(LookupHeadersCallback cb) {
                       // It should be possible to cancel close, to make this safe.
                       // (it should still close the file, but cancel the callback.)
                       auto queued = fh->close([this, cb](absl::Status) {
-                        absl::MutexLock lock(&mu_);
                         // Restart getHeaders with the new key.
-                        return getHeadersWithLock(cb);
+                        return getHeaders(cb);
                       });
                       ASSERT(queued.ok(), queued.ToString());
                       return;
