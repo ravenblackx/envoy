@@ -26,6 +26,14 @@ Http::FilterFactoryCb CacheFilterFactory::createFilterFactoryFromProtoTyped(
     cache = http_cache_factory->getCache(config, context);
   }
 
+  if (!config.upstream_cluster().empty()) {
+    if (context.serverFactoryContext().clusterManager().getThreadLocalCluster(
+            config.upstream_cluster()) == nullptr) {
+      throw EnvoyException(
+          fmt::format("cache filter upstream_cluster '{}' not found", config.upstream_cluster()));
+    }
+  }
+
   return [config = std::make_shared<CacheFilterConfig>(config, context.serverFactoryContext()),
           cache](Http::FilterChainFactoryCallbacks& callbacks) -> void {
     callbacks.addStreamFilter(std::make_shared<CacheFilter>(config, cache));
